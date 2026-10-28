@@ -20,12 +20,6 @@ Turkiye ulusal, haber, spor, belgesel, cocuk, muzik ve yerel televizyon kanallar
 - Python 3.9 veya uzeri
 - Modern bir web tarayicisi (Chrome, Edge, Firefox, Safari)
 
-### Calistirma Adimlari
-
-1. Depoyu klonlayin:
-git clone https://github.com/KULLANICI_ADINIZ/tv.git
-cd tv
-
 2. Bagimliliklari yukleyin:
 pip install -r requirements.txt
 
