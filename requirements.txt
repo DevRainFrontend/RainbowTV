@@ -1,0 +1,5 @@
+requests>=2.31.0
+urllib3>=2.0.0
+qrcode>=7.4.2
+
+yt-dlp>=2024.0.0

@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <script>
+    window.onerror = function(msg, url, lineNo, columnNo, error) {
+      fetch('/api/client_error?err=' + encodeURIComponent(msg + ' at ' + (url ? url.split('/').pop() : '') + ':' + lineNo + ':' + columnNo));
+    };
+    window.addEventListener('unhandledrejection', function(event) {
+      fetch('/api/client_error?err=' + encodeURIComponent('Unhandled Rejection: ' + (event.reason ? event.reason.stack || event.reason : '')));
+    });
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>RainbowTV - Türkiye TV Kanalları, EPG ve Canlı Yayın Platformu</title>
+
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#152a49">
+  <meta name="description" content="RainbowTV: Türkiye'nin tüm açık televizyon kanalları, 24 saatlik EPG yayın akışı, DVR geriye sarma, çoklu ekran ve TV kumandası modu.">
+  <link rel="icon" type="image/png" href="/favicon.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+  <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
+
+  <link rel="stylesheet" href="style.css?v=26">
+</head>
+<body>
+
+  <header class="app-header">
+    <div class="header-left">
+      <div class="brand-logo" title="RainbowTV Canlı TV Platformu">
+        <img src="/rainbowtv_brand.png" alt="RainbowTV" class="brand-image-logo">
+        <span class="brand-tag">CANLI</span>
+      </div>
+
+      <div class="multiview-selector">
+        <button class="view-btn active" data-view="single" title="Tekli Ekran">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+          <span>Tekli</span>
+        </button>
+        <button class="view-btn" data-view="dual" title="2'li Yan Yana Çoklu Ekran">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="18" rx="1"/><rect x="13" y="3" width="8" height="18" rx="1"/></svg>
+          <span>2'li Ekran</span>
+        </button>
+        <button class="view-btn" data-view="quad" title="4'lü Izgara Çoklu Ekran">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>
+          <span>4'lü Ekran</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="header-right">
+
+      <button class="header-action-btn" id="sleepTimerBtn" title="Uyku Zamanlayıcısı (Kısayol: Z)">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        <span id="sleepTimerText">Uyku Modu</span>
+        <span class="badge" id="sleepTimerBadge" style="display: none;"></span>
+      </button>
+
+      <button class="header-action-btn" id="alarmsBtn" title="Kurulan Program Alarmları">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+        <span class="badge" id="alarmsCount">0</span>
+      </button>
+
+      <button class="header-action-btn icon-only" id="shortcutsBtn" title="Klavye & TV Kumandası Kısayolları (?)">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+      </button>
+
+      <button class="header-action-btn icon-only" id="refreshBtn" title="Kanalları Yenile">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="app-main">
+
+    <div class="mobile-tabs-bar" id="mobileTabsBar">
+      <button class="mobile-tab-btn active" id="tabBtnChannels" data-tab="channels">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+        <span id="tabChannelsCount">Kanallar (171)</span>
+      </button>
+      <button class="mobile-tab-btn" id="tabBtnEpg" data-tab="epg">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+        <span>Yayın Akışı (EPG)</span>
+      </button>
+    </div>
+
+    <aside class="channels-sidebar" id="channelsSidebar">
+
+      <div class="sidebar-search-box">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" id="channelSearchInput" placeholder="Kanal veya program ara..." autocomplete="off">
+        <button id="clearSearchBtn" class="clear-btn" style="display: none;">✕</button>
+      </div>
+
+      <div class="category-tabs" id="categoryTabs">
+        <button class="cat-pill active" data-category="ALL">Tümü <span class="cat-count" id="countAll">0</span></button>
+        <button class="cat-pill" data-category="FAV">Favoriler <span class="cat-count" id="countFav">0</span></button>
+        <button class="cat-pill " data-category="4K">4K UHD <span class="cat-count" id="count4k">4</span></button>
+        <button class="cat-pill" data-category="Ulusal">Ulusal</button>
+        <button class="cat-pill" data-category="Haber">Haber</button>
+        <button class="cat-pill" data-category="Spor">Spor</button>
+        <button class="cat-pill" data-category="Belgesel & Kültür">Belgesel</button>
+        <button class="cat-pill" data-category="Çocuk">Çocuk</button>
+        <button class="cat-pill" data-category="Müzik">Müzik</button>
+        <button class="cat-pill" data-category="Radyo">Radyo</button>
+        <button class="cat-pill" data-category="Yerel & Diğer">Yerel</button>
+      </div>
+
+      <div class="recent-channels-strip" id="recentStrip" style="display: none;">
+        <div class="strip-label">Son İzlenenler:</div>
+        <div class="strip-items" id="recentItems"></div>
+      </div>
+
+      <div class="channels-list-container" id="channelsListContainer">
+
+      </div>
+    </aside>
+
+    <section class="player-stage" id="playerStage">
+
+      <div class="player-container" id="playerContainer">
+
+        <div class="tv-osd" id="tvOsd">
+          <div class="osd-number" id="osdNumber">1</div>
+          <div class="osd-info">
+            <div class="osd-name" id="osdName">TRT 1</div>
+            <div class="osd-program" id="osdProgram">Canlı Yayın</div>
+          </div>
+        </div>
+
+        <div class="stats-for-nerds" id="statsForNerds" style="display: none;">
+          <div class="stats-header">
+            <span>Yayın İstatistikleri</span>
+            <button id="closeStatsBtn">✕</button>
+          </div>
+          <div class="stats-grid">
+            <div class="stat-item"><span class="stat-k">Çözünürlük:</span> <span class="stat-v" id="statRes">-</span></div>
+            <div class="stat-item"><span class="stat-k">Bitrate:</span> <span class="stat-v" id="statBitrate">-</span></div>
+            <div class="stat-item"><span class="stat-k">Buffer Süresi:</span> <span class="stat-v" id="statBuffer">-</span></div>
+            <div class="stat-item"><span class="stat-k">FPS:</span> <span class="stat-v" id="statFps">-</span></div>
+            <div class="stat-item"><span class="stat-k">Düşen Kare:</span> <span class="stat-v" id="statDropped">0</span></div>
+            <div class="stat-item"><span class="stat-k">Gecikme (Latency):</span> <span class="stat-v" id="statLatency">-</span></div>
+            <div class="stat-item"><span class="stat-k">Oynatıcı Modu:</span> <span class="stat-v" id="statMode">HLS.js Native</span></div>
+          </div>
+        </div>
+
+        <div class="single-player-wrapper" id="singlePlayerWrapper">
+          <video id="mainVideo" playsinline preload="auto" crossorigin="anonymous"></video>
+
+          <button class="mobile-quick-fs-btn" id="mobileQuickFsBtn" title="Tam Ekran" aria-label="Tam Ekran">
+            <svg id="mobileEnterFsIcon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+            </svg>
+            <svg id="mobileExitFsIcon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+              <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path>
+            </svg>
+          </button>
+
+          <canvas id="upscaleCanvas" width="3840" height="2160" style="display: none;"></canvas>
+
+          <div class="limiter-active-badge" id="limiterActiveBadge" style="display: none;">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+            <span>Reklam Sesi Dengelendi</span>
+          </div>
+
+          <div class="catchup-indicator-bar" id="catchupBar" style="display: none;">
+            <div class="catchup-left">
+              <span class="catchup-tag">GEÇMİŞ YAYIN</span>
+              <span class="catchup-prog-name" id="catchupProgName">08:30 - Sabah Kuşağı</span>
+            </div>
+            <button class="return-live-btn" id="returnLiveBtn" title="Canlı Yayına Geri Dön">Canlı Yayına Dön</button>
+          </div>
+
+          <div class="radio-player-overlay" id="radioPlayerOverlay" style="display: none;">
+            <div class="radio-ambient-glow" id="radioAmbientGlow"></div>
+            <div class="radio-card">
+              <div class="radio-logo-container">
+                <div class="radio-pulse-ring r-ring-1"></div>
+                <div class="radio-pulse-ring r-ring-2"></div>
+                <img id="radioStationLogo" src="" alt="Radyo Logosu" class="radio-station-logo">
+              </div>
+              <div class="radio-badge">
+                <span class="radio-dot"></span>
+                <span>CANLI RADYO YAYINI</span>
+                <span class="radio-quality-tag">128 KBPS HD</span>
+              </div>
+              <div class="radio-station-name" id="radioStationName">Radyo İstasyonu</div>
+              <div class="radio-program-name" id="radioProgramName">Canlı Radyo Akışı</div>
+
+              <div class="radio-equalizer" id="radioEqualizer">
+                <span class="eq-bar eq-1"></span>
+                <span class="eq-bar eq-2"></span>
+                <span class="eq-bar eq-3"></span>
+                <span class="eq-bar eq-4"></span>
+                <span class="eq-bar eq-5"></span>
+                <span class="eq-bar eq-6"></span>
+                <span class="eq-bar eq-7"></span>
+                <span class="eq-bar eq-8"></span>
+                <span class="eq-bar eq-9"></span>
+                <span class="eq-bar eq-10"></span>
+                <span class="eq-bar eq-11"></span>
+                <span class="eq-bar eq-12"></span>
+                <span class="eq-bar eq-13"></span>
+                <span class="eq-bar eq-14"></span>
+                <span class="eq-bar eq-15"></span>
+                <span class="eq-bar eq-16"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="big-play-overlay" id="bigPlayBtn">
+            <svg viewBox="0 0 24 24" width="48" height="48" fill="white"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          </div>
+
+          <div class="player-spinner" id="playerSpinner" style="display: none;">
+            <div class="spinner-circle"></div>
+            <span>Akış Bağlanıyor...</span>
+          </div>
+
+          <div class="player-error" id="playerError" style="display: none;">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            <div class="err-title" id="errTitle">Yayın Akışı Yüklenemedi</div>
+            <div class="err-desc" id="errDesc">Birincil akışa ulaşılamadı. Yedek linke geçiş yapılıyor...</div>
+            <button class="retry-btn" id="retryStreamBtn">Tekrar Dene</button>
+          </div>
+        </div>
+
+        <div class="multiview-grid" id="multiviewGrid" style="display: none;">
+
+        </div>
+
+        <div class="casting-overlay" id="castingOverlay" style="display: none;">
+          <div class="casting-icon-pulse">
+            <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8A13 13 0 0 1 14 20"></path>
+              <line x1="2" y1="20" x2="2.01" y2="20"></line>
+              <path d="M22 19V5a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v3m20 7v2a2 2 0 0 1-2 2h-4"></path>
+            </svg>
+          </div>
+          <div class="casting-title">Akıllı TV'de Oynatılıyor</div>
+          <div class="casting-device" id="castingDeviceName">Bağlı Akıllı TV / Cihaz</div>
+          <button class="casting-stop-btn" id="castingStopBtn">Yansıtmayı Sonlandır</button>
+        </div>
+
+        <div class="player-controls" id="playerControls">
+
+          <div class="dvr-progress-wrapper" id="dvrProgressWrapper">
+            <input type="range" id="dvrSeekbar" min="0" max="100" value="100" step="0.1">
+            <div class="dvr-timeline-tooltip" id="dvrTooltip">-00:00</div>
+          </div>
+
+          <div class="controls-row">
+
+            <div class="controls-left">
+              <button class="ctrl-btn" id="playPauseBtn" title="Oynat / Duraklat (Boşluk)">
+                <svg id="playIcon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                <svg id="pauseIcon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="display: none;"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+              </button>
+
+              <button class="ctrl-btn" id="rewind10Btn" title="10 Saniye Geri Sar">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"></path><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path><text x="8" y="16" font-size="7" font-weight="bold" fill="currentColor">10</text></svg>
+              </button>
+
+              <button class="ctrl-btn" id="rewind30Btn" title="30 Saniye Geri Sar">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"></path><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path><text x="8" y="16" font-size="7" font-weight="bold" fill="currentColor">30</text></svg>
+              </button>
+
+              <button class="live-indicator-btn is-live" id="liveSyncBtn" title="En son canlı yayına dön">
+                <span class="live-dot"></span>
+                <span id="liveBtnText">CANLI</span>
+              </button>
+
+              <div class="volume-group">
+                <button class="ctrl-btn icon-only" id="muteBtn" title="Sesi Kapat / Aç (M)">
+                  <svg id="volHighIcon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                  <svg id="volMuteIcon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" style="display:none;"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
+                </button>
+                <input type="range" id="volumeSlider" min="0" max="1" step="0.02" value="1" title="Ses Seviyesi">
+                <span class="vol-percent" id="volumePercent">100%</span>
+              </div>
+
+              <div class="audio-eq-selector-wrap">
+                <button class="ctrl-btn icon-only" id="audioEqBtn" title="Ses Modu ve Ekolayzır (Diyalog, Sinema, Gece)">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="4" y1="21" x2="4" y2="14"></line>
+                    <line x1="4" y1="10" x2="4" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="12"></line>
+                    <line x1="12" y1="8" x2="12" y2="3"></line>
+                    <line x1="20" y1="21" x2="20" y2="16"></line>
+                    <line x1="20" y1="12" x2="20" y2="3"></line>
+                    <line x1="1" y1="14" x2="7" y2="14"></line>
+                    <line x1="9" y1="8" x2="15" y2="8"></line>
+                    <line x1="17" y1="16" x2="23" y2="16"></line>
+                  </svg>
+                </button>
+                <div class="audio-eq-dropdown" id="audioEqDropdown">
+                  <div class="audio-eq-header">
+                    <span class="audio-eq-title">Ses Modu & Ekolayzır</span>
+                    <span class="audio-eq-current" id="audioEqCurrentBadge">Standart</span>
+                  </div>
+                  <div class="audio-eq-presets">
+                    <button class="audio-eq-preset-btn active" data-preset="standard">
+                      <span class="preset-name">Standart (Düz)</span>
+                      <span class="preset-desc">Doğal frekans dengesi</span>
+                    </button>
+                    <button class="audio-eq-preset-btn" data-preset="dialogue">
+                      <span class="preset-name">Diyalog Netleştirici</span>
+                      <span class="preset-desc">Haber ve dizide kristal ses</span>
+                    </button>
+                    <button class="audio-eq-preset-btn" data-preset="cinema">
+                      <span class="preset-name">Sinema & Derin Bas</span>
+                      <span class="preset-desc">Aksiyon ve patlama basları</span>
+                    </button>
+                    <button class="audio-eq-preset-btn" data-preset="night">
+                      <span class="preset-name">Gece Modu (Kompresör)</span>
+                      <span class="preset-desc">Ani ses patlamalarını dengeler</span>
+                    </button>
+                    <button class="audio-eq-preset-btn" data-preset="music">
+                      <span class="preset-name">Müzik & Canlı Sahne</span>
+                      <span class="preset-desc">Geniş akustik frekans alanı</span>
+                    </button>
+                  </div>
+                  <div class="audio-eq-sliders">
+                    <div class="eq-slider-row">
+                      <span class="eq-slider-label">Bas (100Hz)</span>
+                      <input type="range" id="eqBassSlider" min="-12" max="12" step="1" value="0">
+                      <span class="eq-slider-val" id="eqBassVal">0 dB</span>
+                    </div>
+                    <div class="eq-slider-row">
+                      <span class="eq-slider-label">Vokal (2.5kHz)</span>
+                      <input type="range" id="eqMidSlider" min="-12" max="12" step="1" value="0">
+                      <span class="eq-slider-val" id="eqMidVal">0 dB</span>
+                    </div>
+                    <div class="eq-slider-row">
+                      <span class="eq-slider-label">Tiz (8kHz)</span>
+                      <input type="range" id="eqTrebleSlider" min="-12" max="12" step="1" value="0">
+                      <span class="eq-slider-val" id="eqTrebleVal">0 dB</span>
+                    </div>
+                  </div>
+
+                  <div class="audio-limiter-section">
+                    <div class="limiter-toggle-row">
+                      <div class="limiter-info">
+                        <span class="limiter-title">
+                          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+                          Akıllı Reklam Dengeleyici
+                        </span>
+                        <span class="limiter-desc">Yüksek sesli reklam patlamalarını otomatik kısar</span>
+                      </div>
+                      <label class="limiter-switch">
+                        <input type="checkbox" id="smartLimiterToggle" checked>
+                        <span class="limiter-switch-slider"></span>
+                      </label>
+                    </div>
+
+                    <div class="limiter-meter-wrap">
+                      <div class="meter-labels">
+                        <span>Anlık Ses Düzeyi</span>
+                        <span id="limiterDbText">-18.0 dB (Normal)</span>
+                      </div>
+                      <div class="meter-bar-bg">
+                        <div class="meter-bar-fill" id="limiterMeterFill" style="width: 45%;"></div>
+                        <div class="meter-limit-line" title="Reklam Sınırı (-13.5 dB)"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <button class="ctrl-btn icon-only active" id="quickLimiterBtn" title="Akıllı Reklam Dengeleyici: Aktif (Ani ses patlamalarını önler)">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                  <path d="M9 12l2 2 4-4"></path>
+                </svg>
+              </button>
+            </div>
+
+            <div class="controls-right">
+
+              <div class="quality-selector-wrap">
+                <button class="ctrl-btn text-btn" id="qualityMenuBtn" title="Yayın Kalitesi Seç">
+                  <span id="qualityLabel"><span class="quality-badge-4k">4K UHD</span></span>
+                </button>
+                <div class="quality-dropdown" id="qualityDropdown">
+
+                </div>
+              </div>
+
+              <button class="ctrl-btn icon-only" id="toggleStatsBtn" title="Gelişmiş İstatistikler (Stats for Nerds)">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+              </button>
+
+              <button class="ctrl-btn icon-only" id="floatPlayerBtn" title="Sayfa İçi Serbest Mini Pencere">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2"></rect><rect x="12" y="12" width="8" height="8" rx="1"></rect></svg>
+              </button>
+
+              <button class="ctrl-btn icon-only" id="castBtn" title="Akıllı TV'ye Yansıt (Chromecast / AirPlay / Smart TV)">
+                <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8A13 13 0 0 1 14 20"></path>
+                  <line x1="2" y1="20" x2="2.01" y2="20"></line>
+                  <path d="M22 19V5a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v3m20 7v2a2 2 0 0 1-2 2h-4"></path>
+                </svg>
+              </button>
+
+              <button class="ctrl-btn icon-only" id="pipBtn" title="Resim içinde Resim (PiP - P)">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h6"></path><rect x="13" y="13" width="9" height="7" rx="1"></rect></svg>
+              </button>
+
+              <button class="ctrl-btn icon-only" id="fullscreenBtn" title="Tam Ekran (F)">
+                <svg id="enterFsIcon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+                <svg id="exitFsIcon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" style="display:none;"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="day-scrubber-wrapper" id="dayScrubberWrapper">
+          <div class="day-scrubber-header">
+            <div class="day-scrubber-title">
+              <span class="day-dot"></span>
+              <span id="dayScrubberModeLabel">24 Saatlik Yayın Akışı & Geçmişe Dönük Geri Sarma</span>
+            </div>
+            <div class="day-scrubber-time" id="dayScrubberCurrentTime">Bugün: Canlı</div>
+          </div>
+          <div class="day-timeline-track" id="dayTimelineTrack">
+            <div class="day-timeline-blocks" id="dayTimelineBlocks"></div>
+            <div class="day-timeline-progress" id="dayTimelineProgress"></div>
+            <div class="day-timeline-live-line" id="dayTimelineLiveLine"></div>
+            <div class="day-timeline-thumb" id="dayTimelineThumb"></div>
+            <div class="day-timeline-tooltip" id="dayTimelineTooltip">08:30 - Sabah Kuşağı</div>
+          </div>
+          <div class="day-timeline-hours">
+            <span>00:00</span>
+            <span>03:00</span>
+            <span>06:00</span>
+            <span>09:00</span>
+            <span>12:00</span>
+            <span>15:00</span>
+            <span>18:00</span>
+            <span>21:00</span>
+            <span class="live-marker" id="dayTimelineLiveMarker">CANLI</span>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="active-channel-card" id="activeChannelCard">
+        <div class="channel-card-left">
+          <div class="channel-card-logo-wrap">
+            <img id="activeChannelLogo" src="" alt="Kanal Logosu" onerror="this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'><rect width=\'100\' height=\'100\' fill=\'%23222\'/><text x=\'50\' y=\'55\' fill=\'%23fff\' font-size=\'14\' text-anchor=\'middle\'>TV</text></svg>'">
+            <span class="active-channel-num" id="activeChannelNum">1</span>
+          </div>
+          <div class="channel-card-details">
+            <div class="channel-title-row">
+              <h1 class="active-channel-name" id="activeChannelName">TRT 1 HD</h1>
+              <span class="badge-category" id="activeChannelCategory">Ulusal</span>
+              <button class="fav-toggle-btn" id="activeFavBtn" title="Favorilere Ekle/Çıkar">★</button>
+            </div>
+            <div class="active-program-name" id="activeProgramName">Gündüz Kuşağı Programı</div>
+            <div class="active-program-desc" id="activeProgramDesc">Türkiye ve dünya gündeminden sıcak gelişmeler, canlı bağlantılar.</div>
+
+            <div class="program-live-bar-wrap">
+              <div class="program-live-bar">
+                <div class="bar-fill" id="activeProgramProgress" style="width: 45%;"></div>
+              </div>
+              <span class="bar-time" id="activeProgramTime">18:45 - 20:00 (Kalan: 25 dk)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="epg-sidebar" id="epgSidebar">
+      <div class="epg-header">
+        <div class="epg-title-row">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          <h2>24 Saatlik Yayın Akışı (EPG)</h2>
+        </div>
+        <span class="epg-date" id="epgDate">Bugün</span>
+      </div>
+
+      <div class="epg-programs-list" id="epgProgramsList">
+
+      </div>
+    </aside>
+
+  </main>
+
+  <div class="hover-preview-tooltip" id="hoverPreviewTooltip">
+    <div class="preview-mini-screen">
+      <img id="previewLogo" src="" alt="Önizleme">
+
+      <div class="preview-live-badge">CANLI</div>
+    </div>
+    <div class="preview-info">
+      <div class="preview-ch-name" id="previewChName">Kanal Adı</div>
+      <div class="preview-prog-title" id="previewProgTitle">Oynayan Program</div>
+      <div class="preview-prog-time" id="previewProgTime">18:00 - 19:30</div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="shortcutsModal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Klavye ve TV Kumandası Kısayolları</h3>
+        <button class="modal-close-btn" id="closeShortcutsModal">✕</button>
+      </div>
+      <div class="shortcuts-grid">
+        <div class="sc-item"><kbd>↑</kbd> <kbd>↓</kbd> <span>Önceki / Sonraki Kanal</span></div>
+        <div class="sc-item"><kbd>→</kbd> <kbd>←</kbd> <span>Ses Seviyesi (+%5 / -%5)</span></div>
+        <div class="sc-item"><kbd>J</kbd> <kbd>L</kbd> <span>10 Saniye Geri / İleri Sar (DVR)</span></div>
+        <div class="sc-item"><kbd>Boşluk</kbd> <kbd>K</kbd> <span>Oynat / Duraklat</span></div>
+        <div class="sc-item"><kbd>R</kbd> <span>🔴 Canlı Yayına Dön</span></div>
+        <div class="sc-item"><kbd>M</kbd> <span>Sesi Kapat / Aç (Mute)</span></div>
+        <div class="sc-item"><kbd>F</kbd> <span>Tam Ekran Aç / Kapat</span></div>
+        <div class="sc-item"><kbd>P</kbd> <span>Picture-in-Picture (PiP)</span></div>
+        <div class="sc-item"><kbd>1-9 & Num</kbd> <span>Kanal Numarasına Doğrudan Git</span></div>
+        <div class="sc-item"><kbd>Esc</kbd> <span>Pencereleri / Panelleri Kapat</span></div>
+        <div class="sc-item"><kbd>?</kbd> <span>Bu Kısayol Menüsünü Aç</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="sleepModal" style="display: none;">
+    <div class="modal-card modal-sm">
+      <div class="modal-header">
+        <h3>🌙 Uyku Zamanlayıcısı</h3>
+        <button class="modal-close-btn" id="closeSleepModal">✕</button>
+      </div>
+      <div class="sleep-options">
+        <button class="sleep-opt-btn now" data-min="-1">🌙 Hemen Uyku Moduna Geç (Ekranı Karart)</button>
+        <button class="sleep-opt-btn test-btn" data-min="1">⚡ 1 Dakika Sonra Kapat (Hızlı Test)</button>
+        <button class="sleep-opt-btn" data-min="15">15 Dakika Sonra Kapat</button>
+        <button class="sleep-opt-btn" data-min="30">30 Dakika Sonra Kapat</button>
+        <button class="sleep-opt-btn" data-min="45">45 Dakika Sonra Kapat</button>
+        <button class="sleep-opt-btn" data-min="60">60 Dakika (1 Saat) Sonra Kapat</button>
+        <button class="sleep-opt-btn" data-min="90">90 Dakika (1.5 Saat) Sonra Kapat</button>
+        <button class="sleep-opt-btn" data-min="120">120 Dakika (2 Saat) Sonra Kapat</button>
+        <div class="sleep-custom-row">
+          <input type="number" id="customSleepInput" min="1" max="720" placeholder="Özel süre (dakika)..." class="sleep-custom-input">
+          <button class="sleep-custom-submit" id="customSleepSubmit">Ayarla</button>
+        </div>
+        <button class="sleep-opt-btn cancel" data-min="0">Zamanlayıcıyı İptal Et</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="alarmsModal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Program Hatırlatıcıları</h3>
+        <button class="modal-close-btn" id="closeAlarmsModal">✕</button>
+      </div>
+      <div class="alarms-list" id="alarmsList">
+        <div class="empty-state">Henüz kurulmuş bir program alarmı bulunmuyor. Yayın akışından (EPG) zil butonuna basarak alarm kurabilirsiniz.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="castModal" style="display: none;">
+    <div class="modal-card" style="max-width: 540px;">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#38bdf8" stroke-width="2">
+            <path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8A13 13 0 0 1 14 20"></path>
+            <line x1="2" y1="20" x2="2.01" y2="20"></line>
+            <path d="M22 19V5a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v3m20 7v2a2 2 0 0 1-2 2h-4"></path>
+          </svg>
+          <h3 style="margin:0; font-size:16px;">Akıllı TV'ye Yansıt (Smart TV & Cast)</h3>
+        </div>
+        <button class="modal-close-btn" id="closeCastModal">✕</button>
+      </div>
+
+      <div class="cast-modal-body">
+
+        <div class="cast-section-title">Kablosuz Yayınla (Cihaz Seçimi)</div>
+        <div class="cast-quick-actions">
+          <button class="cast-action-btn" id="btnTriggerChromecast">
+            <div class="cast-action-icon">📺</div>
+            <div class="cast-action-info">
+              <strong>Chromecast & Android TV</strong>
+              <span>Google Cast protokolüyle oturma odasındaki TV'ye aktar</span>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="sleepOverlay" class="sleep-screen-overlay" style="display: none;">
+    <div class="sleep-screen-content">
+      <div class="sleep-moon-icon">🌙</div>
+      <h2>Uyku Modu Devrede</h2>
+      <p>Yayın duraklatıldı, ekran karartıldı ve ses kısıldı.</p>
+      <button class="wake-up-btn" id="wakeUpBtn">▶ Yayına Devam Et</button>
+      <span class="wake-hint">Uyanmak için ekrana tıklayın veya klavyeden herhangi bir tuşa basın</span>
+    </div>
+  </div>
+
+  <script src="app.js?v=26"></script>
+</body>
+</html>
