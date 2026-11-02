@@ -73,3 +73,5 @@ tv/
 ## Lisans
 
 Bu proje CC0 1.0 Universal ile lisanslanmistir. Detaylar icin LICENSE dosyasini inceleyebilirsiniz.
+
+Bu proje kapsamında yer alan kaynak kodlar; orijinal yapısı korunarak ve tarafıma ait telif bildirimi rainbow.dev eksiksiz belirtilerek serbestçe kopyalanabilir ve dağıtılabilir. Kod üzerinde herhangi bir düzenleme, uyarlama veya modifikasyon yapılarak üçüncü şahıslara sunulması, dağıtılması veya yeniden yayımlanması kesinlikle yasaktır.
