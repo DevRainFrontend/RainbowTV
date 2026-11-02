@@ -72,4 +72,4 @@ tv/
 
 ## Lisans
 
-Bu proje MIT Lisansi ile lisanslanmistir. Detaylar icin LICENSE dosyasini inceleyebilirsiniz.
+Bu proje CC0 1.0 Universal ile lisanslanmistir. Detaylar icin LICENSE dosyasini inceleyebilirsiniz.
